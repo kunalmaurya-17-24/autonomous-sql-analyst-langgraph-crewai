@@ -1,0 +1,19 @@
+# tasks.yaml
+analysis_task:
+  description: >
+    Analyze the following request: {topic}. 
+    Use the database tool to generate and validate the necessary SQL to answer this question. 
+    Your output should include the validated SQL and a brief technical summary of what the data represents.
+  expected_output: >
+    A technical summary containing the validated SQL query.
+  agent: data_analyst
+
+reporting_task:
+  description: >
+    Using the findings provided by the Senior Data Analyst, write a professional report. 
+    Ensure the report includes an Executive Summary of Financial Health, a comparison table 
+    between actual spend and budgets, and a Conclusion with saving recommendations. 
+    Format the final output as a clean Markdown document.
+  expected_output: >
+    A professional markdown report titled 'Personal Financial Health Analysis'.
+  agent: technical_writer

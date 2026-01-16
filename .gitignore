@@ -1,0 +1,33 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Logs
+logs/
+*.log
+error.txt
+
+# Generated Artifacts
+report.md
+*.pkl
+LangGRAPH_SQL/*.pkl
+
+# Database
+*.db
+finance.db
+
+# Environment Variables
+.env
+
+# IDE and System
+.vscode/
+.idea/
+.DS_Store
+

@@ -1,0 +1,28 @@
+Great! The screenshot confirms that you have MySQL 8.0 and MySQL Workbench installed on your machine. You're almost there.
+
+Since you don't know the password (because the code was from a repo), here is exactly how to find it or set it up:
+
+1. Try a Default Password
+Often, people set it to something simple like root, password, or admin123. You can try entering these in your 
+.env
+ as the DB_PASSWORD.
+
+2. If you don't know the password (Safe Reset)
+Since you already have MySQL Installer - Community (visible in your screenshot), you can reset the password easily:
+
+Open MySQL Installer from your Start menu.
+Click on the "Reconfigure" link next to "MySQL Server 8.0".
+Click "Next" until you reach the "Accounts and Roles" page.
+Enter a New Root Password (make it something simple like admin123).
+Finish the wizard.
+3. Update the System
+Once you have your password:
+
+Put it in the 
+.env
+ file under DB_PASSWORD.
+Run the 
+create_tables.ipynb
+ notebook to actually "get" the data and tables into your MySQL.
+Once those tables are created, your autonomous CrewAgent will finally be able to actually "talk" to the database!
+
