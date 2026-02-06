@@ -96,7 +96,24 @@ async def create_thread(data: ThreadCreate):
 @app.get("/threads/{thread_id}/state")
 async def get_thread_state(thread_id: str):
     """Retrieve state - dummy response for now to satisfy UI."""
-    return {"values": {}, "next": []}
+    return {"values": {}, "next": [], "metadata": {}, "created_at": "2024-01-01T00:00:00Z", "config": {}, "parent_config": {}}
+
+@app.post("/threads/search")
+async def search_threads(request: Request):
+    """Dummy thread search."""
+    return [{"thread_id": str(uuid.uuid4()), "metadata": {}, "created_at": "2024-01-01T00:00:00Z"}]
+
+@app.get("/threads/{thread_id}/history")
+async def get_thread_history(thread_id: str):
+    return []
+
+@app.get("/threads/{thread_id}/runs")
+async def list_runs(thread_id: str):
+    return []
+
+@app.post("/threads/{thread_id}/runs/wait")
+async def wait_run(thread_id: str):
+    return {}
 
 @app.post("/threads/{thread_id}/runs")
 @app.post("/threads/{thread_id}/runs/stream")
