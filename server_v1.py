@@ -6,6 +6,7 @@ import logging
 import json
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union
 from dotenv import load_dotenv
@@ -17,6 +18,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server")
 
 app = FastAPI(title="LangGraph API Shim (Lazy)")
+
+# --- ADDED CORS MIDDLEWARE ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow your Vercel URL to talk to GCP
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# -----------------------------
 
 # Lazy-loaded graph
 graph = None
