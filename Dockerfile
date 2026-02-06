@@ -15,9 +15,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Expose port
+# Ensure the database and logs directory exist with right permissions
+RUN mkdir -p logs
+
+# Expose port (Cloud Run uses PORT env var, default to 8080)
 EXPOSE 8080
 
-# Run the official LangGraph server in dev mode 
-# This provides the exact API endpoints the Vercel UI expects
-CMD ["langgraph", "dev", "--host", "0.0.0.0", "--port", "8080"]
+# Run the FastAPI shim
+CMD ["python", "server_v1.py"]
