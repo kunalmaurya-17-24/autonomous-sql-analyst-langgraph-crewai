@@ -3,12 +3,24 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Any, Dict
-from LangGRAPH_SQL.graph_entry import builder_final
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI(title="Autonomous SQL Analyst API")
 
-# Initialize the graph
-graph = builder_final.compile()
+# Initialize the graph with logging
+try:
+    print("Initializing LangGraph...")
+    from LangGRAPH_SQL.graph_entry import builder_final
+    graph = builder_final.compile()
+    print("Graph compiled successfully.")
+except Exception as e:
+    print(f"CRITICAL: Failed to compile graph: {str(e)}")
+    # We allow the app to start so the container doesn't crash, 
+    # but we'll return errors on requests.
+    graph = None
 
 class QueryRequest(BaseModel):
     query: str
@@ -23,6 +35,8 @@ async def root():
 
 @app.post("/api/query", response_model=QueryResponse)
 async def execute_query(request: QueryRequest):
+    if graph is None:
+        raise HTTPException(status_code=500, detail="Graph failed to initialize. Check server logs.")
     try:
         # Run the graph with the user query
         inputs = {"query": request.query}
