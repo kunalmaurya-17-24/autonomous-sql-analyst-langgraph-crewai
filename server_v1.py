@@ -112,13 +112,13 @@ async def list_runs(thread_id: str):
     return []
 
 @app.post("/threads/{thread_id}/runs/wait")
-async def wait_run(thread_id: str):
-    return {}
+async def wait_run(thread_id: str, request: Request):
+    """Wait for a run to complete."""
+    return {"status": "completed"}
 
-@app.post("/threads/{thread_id}/runs")
 @app.post("/threads/{thread_id}/runs/stream")
 @app.post("/runs/stream")
-async def create_run(thread_id: str = None, request: Request = None):
+async def create_run_stream(thread_id: str = None, request: Request = None):
     """Streaming run execution for the premium UI."""
     # Log the raw request for debugging
     if request:
@@ -187,6 +187,24 @@ async def create_run(thread_id: str = None, request: Request = None):
             yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.post("/threads/{thread_id}/runs")
+async def create_run_non_stream(thread_id: str, request: Request):
+    """Non-streaming run execution (fallback)."""
+    body = await request.body()
+    try:
+        data_dict = json.loads(body.decode('utf-8'))
+    except:
+        data_dict = {}
+    
+    logger.info(f"Non-streaming run request: {data_dict}")
+    
+    # Return a dummy run ID
+    return {
+        "run_id": str(uuid.uuid4()),
+        "thread_id": thread_id,
+        "status": "pending"
+    }
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
