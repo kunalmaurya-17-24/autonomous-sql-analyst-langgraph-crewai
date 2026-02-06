@@ -3,6 +3,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough, RunnableMap, RunnableLambda
 
+import opik
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -52,6 +53,7 @@ chain = (
     | StrOutputParser()
 )
 
+@opik.track()
 def agent_2(q):
     response = chain.invoke({"question": q}).replace('```', '')
     return response

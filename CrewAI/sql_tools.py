@@ -2,7 +2,7 @@ import os
 import sys
 from crewai.tools import BaseTool
 from typing import Type
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 # Ensure LangGRAPH_SQL is in the path for imports
 # This assumes the project structure:
@@ -22,8 +22,7 @@ class SQLToolInput(BaseModel):
     """Input for the SQLTool."""
     query: str = Field(..., description="The natural language question to ask the database.")
 
-# Failure Counter
-FAIL_COUNT = 0
+import opik
 
 class LangGraphSQLTool(BaseTool):
     name: str = "Ask_Company_Database"
@@ -32,12 +31,14 @@ class LangGraphSQLTool(BaseTool):
         "Input should be a specific natural language question like 'What was the churn rate last week?'"
     )
     args_schema: Type[BaseModel] = SQLToolInput
+    
+    # Define as PrivateAttr so Pydantic ignores it for validation but keeps state
+    _fail_count: int = PrivateAttr(default=0)
 
+    @opik.track()
     def _run(self, query: str) -> str:
-        global FAIL_COUNT
-        
         # 0. Safety Check
-        if FAIL_COUNT >= 3:
+        if self._fail_count >= 3:
             return "STOP: The SQL Agent has failed 3 consecutive times. Aborting to save API credits. Please check logs."
 
         # 1. Call the deterministic LangGraph pipeline (which now executes the SQL)
@@ -46,12 +47,12 @@ class LangGraphSQLTool(BaseTool):
         
         # 2. Check for failure
         if "Error" in data_result or "Failed" in data_result or "No results" in data_result:
-            FAIL_COUNT += 1
-            if FAIL_COUNT >= 3:
-                 return f"Database Results:\n\n{data_result}\n\n[SYSTEM]: Critical Failure Limit Reached ({FAIL_COUNT}/3). Stopping."
+            self._fail_count += 1
+            if self._fail_count >= 3:
+                 return f"Database Results:\n\n{data_result}\n\n[SYSTEM]: Critical Failure Limit Reached ({self._fail_count}/3). Stopping."
         else:
              # Reset on success
-             FAIL_COUNT = 0
+             self._fail_count = 0
         
         # 3. Return the formatted data (Markdown table)
         return f"Database Results:\n\n{data_result}"

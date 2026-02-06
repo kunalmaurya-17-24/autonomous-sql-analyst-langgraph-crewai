@@ -72,26 +72,51 @@ def agent_column_selection(mq, q,c):
 
 def solve_column_selection(main_q, list_sub):
     final_col = []
-    inter = []
+    
+    # Pre-get valid table names for validation
+    valid_tables = list(loaded_dict.keys())
+    
     for tab in list_sub:
-        if len(tab)==0:
+        if not isinstance(tab, (list, tuple)) or len(tab) < 2:
+            logger.warning(f"Skipping malformed subquestion entry: {tab}")
             continue
-        table_name = tab[1]
+            
         question = tab[0]
-        columns = loaded_dict[table_name][1]
-        out_column = agent_column_selection(main_q, question, str(columns))
-        # clean the output if it has markdown code blocks
-        cleaned_out = out_column.replace('```json', '').replace('```', '').strip()
-        try:
-            trans_col = ast.literal_eval(cleaned_out)
-        except Exception as e:
-            logger.error(f"Failed to parse column selection output: {out_column}. Error: {e}")
-            trans_col = []
+        table_name = tab[1]
+        
+        # Defensive Check: If table_name is not in loaded_dict, 
+        # check if the LLM swapped them (sometimes happens)
+        if table_name not in valid_tables:
+            if question in valid_tables:
+                # LLM swapped table and question
+                logger.warning(f"Detected table/question swap. Swapping back: {table_name} <-> {question}")
+                table_name, question = question, table_name
+            else:
+                logger.error(f"LLM provided invalid table name: '{table_name}'. Skipping.")
+                continue
 
-        for col_selec in trans_col:
-            new_col = ["name of table:" + table_name] + col_selec
-            inter.append(new_col)
-        final_col.extend(inter)
+        try:
+            columns = loaded_dict[table_name][1]
+            out_column = agent_column_selection(main_q, question, str(columns))
+            # clean the output if it has markdown code blocks
+            cleaned_out = out_column.replace('```json', '').replace('```', '').strip()
+            
+            try:
+                trans_col = ast.literal_eval(cleaned_out)
+            except Exception as e:
+                logger.error(f"Failed to parse column selection output: {out_column}. Error: {e}")
+                trans_col = []
+
+            inter = []
+            for col_selec in trans_col:
+                new_col = ["name of table:" + table_name] + col_selec
+                inter.append(new_col)
+            final_col.extend(inter)
+            
+        except Exception as e:
+            logger.error(f"Unexpected error processing table '{table_name}': {e}")
+            continue
+            
     return final_col
 
 

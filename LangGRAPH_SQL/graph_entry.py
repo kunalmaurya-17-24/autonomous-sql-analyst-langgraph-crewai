@@ -12,6 +12,9 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime
 from dotenv import load_dotenv
+import opik
+from opik.integrations.langchain import OpikTracer
+opik_tracer = OpikTracer()
 
 load_dotenv()
 
@@ -47,14 +50,47 @@ d_store = {
 # Get current directory to load relative files
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Load Knowledge Base
+# Load Knowledge Base with defensive checking
 kb_path = os.path.join(CURRENT_DIR, 'kb.pkl')
-with open(kb_path, 'rb') as f:
-    loaded_dict = pickle.load(f)
+if not os.path.exists(kb_path):
+    raise FileNotFoundError(
+        f"CRITICAL: Knowledge Base file not found at '{kb_path}'.\n"
+        f"Please ensure 'kb.pkl' exists in the LangGRAPH_SQL directory.\n"
+        f"This file contains the database schema metadata required for SQL generation."
+    )
 
-# SQLite Engine for Finance DB
+try:
+    with open(kb_path, 'rb') as f:
+        loaded_dict = pickle.load(f)
+    logger.info(f"Successfully loaded knowledge base from {kb_path}")
+except Exception as e:
+    raise RuntimeError(
+        f"CRITICAL: Failed to load knowledge base from '{kb_path}'.\n"
+        f"Error: {str(e)}\n"
+        f"The file may be corrupted. Try regenerating kb.pkl."
+    )
+
+# SQLite Engine for Finance DB with defensive checking
 db_path = os.path.join(os.path.dirname(CURRENT_DIR), 'finance.db')
-engine = create_engine(f'sqlite:///{db_path}')
+if not os.path.exists(db_path):
+    raise FileNotFoundError(
+        f"CRITICAL: Database file not found at '{db_path}'.\n"
+        f"Please ensure 'finance.db' exists in the project root directory.\n"
+        f"This is the SQLite database containing your financial transactions."
+    )
+
+try:
+    engine = create_engine(f'sqlite:///{db_path}')
+    # Test the connection
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    logger.info(f"Successfully connected to database at {db_path}")
+except Exception as e:
+    raise RuntimeError(
+        f"CRITICAL: Failed to connect to database at '{db_path}'.\n"
+        f"Error: {str(e)}\n"
+        f"The database file may be corrupted or inaccessible."
+    )
 
 # State Definition
 class FinalState(TypedDict):
@@ -84,6 +120,7 @@ def remove_duplicates(f: Dict[str, Any]) -> List[Any]:
 
 # --- Nodes ---
 
+@opik.track()
 def router_node(state: FinalState):
     start_time = time.time()
     q = state['user_query']
@@ -122,6 +159,7 @@ def filter_condition(state: FinalState):
     else:
         return "yes"
 
+@opik.track()
 def finance_node(state: FinalState):
     start_time = time.time()
     q = state['user_query']
@@ -137,6 +175,7 @@ def finance_node(state: FinalState):
         logger.error(f"[ERROR] Finance Node failed: {str(e)}", exc_info=True)
         raise
 
+@opik.track()
 def filter_check_node(state: FinalState):
     start_time = time.time()
     q = state['user_query']
@@ -151,7 +190,10 @@ def filter_check_node(state: FinalState):
         col_details = remove_duplicates(f)
         logger.info(f"Filter Check Node: Analyzing {len(col_details)} columns")
         rate_limiter.check_and_wait()
-        response = chain_filter_extractor.invoke({"columns": str(col_details), "query": q})
+        response = chain_filter_extractor.invoke(
+            {"columns": str(col_details), "query": q},
+            config={"callbacks": [opik_tracer]}
+        )
         # clean the output if it has markdown code blocks
         cleaned_response = response.replace('```json', '').replace('```', '').strip()
         
@@ -169,6 +211,7 @@ def filter_check_node(state: FinalState):
         logger.error(f"[ERROR] Filter Check Node failed: {str(e)}", exc_info=True)
         raise
 
+@opik.track()
 def fuzz_match_node(state: FinalState):
     start_time = time.time()
     val = state['filter_extractor']
@@ -183,6 +226,7 @@ def fuzz_match_node(state: FinalState):
         logger.error(f"[ERROR] Fuzz Match Node failed: {str(e)}", exc_info=True)
         raise
 
+@opik.track()
 def query_generation_node(state: FinalState):
     start_time = time.time()
     q = state['user_query']
@@ -192,7 +236,10 @@ def query_generation_node(state: FinalState):
     
     try:
         rate_limiter.check_and_wait()
-        final_query = chain_query_extractor.invoke({"columns": tab_cols, "query": q, "filters": filters})
+        final_query = chain_query_extractor.invoke(
+            {"columns": tab_cols, "query": q, "filters": filters},
+            config={"callbacks": [opik_tracer]}
+        )
         logger.info(f"Query Generation Node: Generated query (first 100 chars): {final_query[:100]}...")
         logger.info(f"[SUCCESS] Query Generation Node: Completed in {time.time() - start_time:.2f}s")
         return {"sql_query": final_query}
@@ -200,6 +247,7 @@ def query_generation_node(state: FinalState):
         logger.error(f"[ERROR] Query Generation Node failed: {str(e)}", exc_info=True)
         raise
 
+@opik.track()
 def query_validation_node(state: FinalState):
     start_time = time.time()
     logger.info("Query Validation Node: Validating SQL query")
@@ -220,7 +268,7 @@ def query_validation_node(state: FinalState):
             "filters": state.get('fuzz_match'), 
             "sql_query": state['sql_query'],
             "all_table_info": str(kb) # Pass full schema
-        })
+        }, config={"callbacks": [opik_tracer]})
         
         # PERMANENT FIX: Extract SQL code block if present
         import re
@@ -247,6 +295,7 @@ def query_validation_node(state: FinalState):
         logger.error(f"[ERROR] Query Validation Node failed: {str(e)}", exc_info=True)
         raise
 
+@opik.track()
 def safe_executor_node(state: FinalState):
     """
     Executes the validated SQL query safely.
@@ -345,7 +394,7 @@ def run_sql_pipeline(query: str) -> str:
     logger.info(f"Log File: {LOG_FILE}")
     
     try:
-        result = sql_pipeline_app.invoke({"user_query": query})
+        result = sql_pipeline_app.invoke({"user_query": query}, config={"callbacks": [opik_tracer]})
         execution_time = time.time() - pipeline_start
         
         logger.info("="*70)

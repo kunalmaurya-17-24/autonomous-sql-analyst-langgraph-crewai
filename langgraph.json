@@ -1,0 +1,8 @@
+{
+  "graphs": {
+    "finance": "./LangGRAPH_SQL/graph_entry.py:builder_final"
+  },
+  "env": ".env",
+  "dependencies": ["."],
+  "python_version": "3.11"
+}

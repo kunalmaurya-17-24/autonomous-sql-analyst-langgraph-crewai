@@ -1,6 +1,9 @@
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
 from CrewAI.sql_tools import LangGraphSQLTool
+import opik
+from opik.integrations.langchain import OpikTracer
+opik_tracer = OpikTracer()
 
 @CrewBase
 class SqlCrew():
@@ -10,16 +13,37 @@ class SqlCrew():
 	tasks_config = 'config/tasks.yaml'
 
 	def __init__(self):
-		# Use string model name for CrewAI compatibility
-		# CrewAI will automatically configure the LLM using GOOGLE_API_KEY from .env
-		pass
+		# Validate config files exist before initializing
+		import os
+		agents_path = os.path.join(os.path.dirname(__file__), self.agents_config)
+		tasks_path = os.path.join(os.path.dirname(__file__), self.tasks_config)
+		
+		if not os.path.exists(agents_path):
+			raise FileNotFoundError(
+				f"CRITICAL: Agents config not found at '{agents_path}'.\n"
+				f"Please ensure 'config/agents.yaml' exists in the CrewAI directory."
+			)
+		
+		if not os.path.exists(tasks_path):
+			raise FileNotFoundError(
+				f"CRITICAL: Tasks config not found at '{tasks_path}'.\n"
+				f"Please ensure 'config/tasks.yaml' exists in the CrewAI directory."
+			)
+		
+		# Initialize the LLM using CrewAI's native wrapper (LiteLLM)
+		# This avoids the "models/gemini..." prefix issue from langchain_google_genai
+		self.llm = LLM(
+			model="gemini/gemini-2.5-flash", 
+			temperature=0,
+			callbacks=[opik_tracer]
+		)
 
 	@agent
 	def data_analyst(self) -> Agent:
 		return Agent(
 			config=self.agents_config['data_analyst'],
 			tools=[LangGraphSQLTool()],
-			llm="gemini/gemini-2.5-flash",  # Best for development: ~1000 requests/day
+			llm=self.llm,
 			verbose=True
 		)
 
@@ -27,7 +51,7 @@ class SqlCrew():
 	def technical_writer(self) -> Agent:
 		return Agent(
 			config=self.agents_config['technical_writer'],
-			llm="gemini/gemini-2.5-flash",  # Best for development: ~1000 requests/day
+			llm=self.llm,
 			verbose=True
 		)
 

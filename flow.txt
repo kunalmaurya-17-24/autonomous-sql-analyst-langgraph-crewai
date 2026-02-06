@@ -1,0 +1,23 @@
+lets say the pdf is what we used to remove llm hallucination
+
+then
+
+use  generally use recursivecharactertextsplitter for chunking
+
+then
+
+use represent/convert those chunks in vector form using embeddings like almini62 or gemini embeddings
+
+we then store those embeddings into vector database as per our use case like chromadb or faiss
+
+we then user query -> goes into LLM for better query generation
+
+then this query gets converted into embeddings as well 
+
+Note we must use the same embeddings model for both
+
+we do similarity search
+
+the reterived ans is again used by another llm for  better result generation
+
+and we use

@@ -3,6 +3,7 @@ from sqlalchemy import create_engine,  text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.types import Integer, Float, String
 from rapidfuzz import process, fuzz
+import opik
 
 import os
 
@@ -31,6 +32,7 @@ def get_values(table_name, column_name):
     return unique_values
 
 
+@opik.track()
 def call_match(val):
     final = []
     for lst in val[1:]:

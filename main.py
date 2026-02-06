@@ -22,12 +22,18 @@ def run_sql_crew():
     print("="*50 + "\n")
     print(result)
 
-    # Save to file
+    # Save to file with error handling
     report_file = "report.md"
-    with open(report_file, "w", encoding='utf-8') as f:
-        f.write(str(result))
-    
-    print(f"\n[INFO] Report saved to {os.path.abspath(report_file)}")
+    try:
+        with open(report_file, "w", encoding='utf-8') as f:
+            f.write(str(result))
+        print(f"\n[INFO] Report saved to {os.path.abspath(report_file)}")
+    except PermissionError:
+        print(f"\n[WARNING] Could not save report to '{report_file}': Permission denied.")
+        print("[INFO] Report is displayed above but could not be written to disk.")
+    except OSError as e:
+        print(f"\n[WARNING] Could not save report to '{report_file}': {str(e)}")
+        print("[INFO] Report is displayed above but could not be written to disk.")
 
 if __name__ == "__main__":
     run_sql_crew()

@@ -7,7 +7,9 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
+venv/
+env/
 
 # Logs
 logs/
@@ -16,15 +18,17 @@ error.txt
 
 # Generated Artifacts
 report.md
-*.pkl
-LangGRAPH_SQL/*.pkl
+# We keep pkl files for V1 deployment to ensure stability
+# *.pkl 
 
 # Database
-*.db
-finance.db
+# We keep finance.db for now so the deployed app has data immediately
+# finance.db 
 
 # Environment Variables
 .env
+# Keep .env template but not the one with actual keys
+.env.example
 
 # IDE and System
 .vscode/

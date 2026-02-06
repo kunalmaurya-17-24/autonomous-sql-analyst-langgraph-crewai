@@ -22,4 +22,5 @@ dependencies = [
     "rapidfuzz>=3.14.3",
     "sqlalchemy>=2.0.45",
     "tqdm>=4.67.1",
+    "opik>=1.6.0",
 ]
