@@ -101,8 +101,20 @@ async def get_thread_state(thread_id: str):
 @app.post("/threads/{thread_id}/runs")
 @app.post("/threads/{thread_id}/runs/stream")
 @app.post("/runs/stream")
-async def create_run(thread_id: str = None, data: RunCreate = None):
+async def create_run(thread_id: str = None, request: Request = None):
     """Streaming run execution for the premium UI."""
+    # Log the raw request for debugging
+    if request:
+        body = await request.body()
+        logger.info(f"Raw request body: {body.decode('utf-8')}")
+        try:
+            data_dict = json.loads(body.decode('utf-8'))
+            logger.info(f"Parsed request: {data_dict}")
+        except:
+            data_dict = {}
+    else:
+        data_dict = {}
+    
     try:
         active_graph = get_graph()
     except Exception as e:
@@ -113,9 +125,11 @@ async def create_run(thread_id: str = None, data: RunCreate = None):
     
     async def event_generator():
         try:
-            user_input = data.input or {} if data else {}
-            # The UI sends messages in different formats, handle all
+            # Handle various input formats
+            user_input = data_dict.get("input", {})
             query = ""
+            
+            # Try to extract the query from various formats
             if isinstance(user_input, dict):
                 query = user_input.get("user_query") or user_input.get("query") or user_input.get("content") or ""
                 # Check for messages array format
@@ -126,10 +140,22 @@ async def create_run(thread_id: str = None, data: RunCreate = None):
                         query = last_msg.get("content", query)
                     elif isinstance(last_msg, str):
                         query = last_msg
+            elif isinstance(user_input, str):
+                query = user_input
             
-            logger.info(f"Processing query: {query}")
+            # Also check if there's a direct "messages" field in the request
+            if not query and "messages" in data_dict:
+                messages = data_dict["messages"]
+                if messages and isinstance(messages, list):
+                    last_msg = messages[-1]
+                    if isinstance(last_msg, dict):
+                        query = last_msg.get("content", "")
+                    elif isinstance(last_msg, str):
+                        query = last_msg
             
-            stream_mode = data.stream_mode if data else "values"
+            logger.info(f"Processing query: '{query}'")
+            
+            stream_mode = data_dict.get("stream_mode", "values")
             
             async for event in active_graph.astream(
                 {"user_query": query}, 
