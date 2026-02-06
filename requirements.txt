@@ -17,5 +17,6 @@ opik
 fuzzywuzzy
 python-Levenshtein
 rapidfuzz
+ipython
 # External API clients if needed
 google-cloud-storage
