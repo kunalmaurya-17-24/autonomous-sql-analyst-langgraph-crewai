@@ -99,7 +99,9 @@ async def get_thread_state(thread_id: str):
     return {"values": {}, "next": []}
 
 @app.post("/threads/{thread_id}/runs")
-async def create_run(thread_id: str, data: RunCreate):
+@app.post("/threads/{thread_id}/runs/stream")
+@app.post("/runs/stream")
+async def create_run(thread_id: str = None, data: RunCreate = None):
     """Streaming run execution for the premium UI."""
     try:
         active_graph = get_graph()
@@ -107,18 +109,32 @@ async def create_run(thread_id: str, data: RunCreate):
         logger.error(f"Failed to load graph: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Graph initialization failed: {str(e)}")
     
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": thread_id or str(uuid.uuid4())}}
     
     async def event_generator():
         try:
-            user_input = data.input or {}
-            query = user_input.get("user_query") or user_input.get("query") or ""
+            user_input = data.input or {} if data else {}
+            # The UI sends messages in different formats, handle all
+            query = ""
+            if isinstance(user_input, dict):
+                query = user_input.get("user_query") or user_input.get("query") or user_input.get("content") or ""
+                # Check for messages array format
+                messages = user_input.get("messages", [])
+                if messages and isinstance(messages, list):
+                    last_msg = messages[-1]
+                    if isinstance(last_msg, dict):
+                        query = last_msg.get("content", query)
+                    elif isinstance(last_msg, str):
+                        query = last_msg
             
-            # The UI often expects 'event: data' then 'data: JSON' for SSE
+            logger.info(f"Processing query: {query}")
+            
+            stream_mode = data.stream_mode if data else "values"
+            
             async for event in active_graph.astream(
                 {"user_query": query}, 
                 config=config, 
-                stream_mode=data.stream_mode
+                stream_mode=stream_mode
             ):
                 yield f"event: data\ndata: {json.dumps(event)}\n\n"
             
